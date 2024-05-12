@@ -88,6 +88,31 @@
       }
     },
     {
+      "name": "haiku",
+      "displayName": "Haiku",
+      "description": "obs-studio for the Haiku operating system",
+      "inherits": ["environmentVars"],
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Haiku"
+      },
+      "binaryDir": "${sourceDir}/build_haiku",
+      "generator": "Ninja",
+      "warnings": {"dev": true, "deprecated": true},
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "ENABLE_BROWSER": false,
+        "ENABLE_NEW_MPEGTS_OUTPUT": false,
+        "ENABLE_WAYLAND": false,
+        "ENABLE_SCRIPTING_PYTHON": false,
+        "ENABLE_VLC": false,
+        "ENABLE_WEBSOCKET": false,
+        "ENABLE_WEBRTC": false,
+        "USE_XDG": true
+      }
+    },
+    {
       "name": "windows-x64",
       "displayName": "Windows x64",
       "description": "Default Windows build (x64)",

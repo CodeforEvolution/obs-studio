@@ -28,6 +28,7 @@ target_sources(
           $<$<PLATFORM_ID:Windows>:captions-mssapi.hpp>
           $<$<PLATFORM_ID:Windows>:captions.cpp>
           $<$<PLATFORM_ID:Windows>:captions.hpp>
+          $<$<PLATFORM_ID:Haiku>:auto-scene-switcher-haiku.cpp>
           auto-scene-switcher.cpp
           auto-scene-switcher.hpp
           frontend-tools.c
@@ -49,7 +50,8 @@ target_link_libraries(
           Qt::Widgets
           "$<$<PLATFORM_ID:Darwin>:$<LINK_LIBRARY:FRAMEWORK,Cocoa>>"
           $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:X11::X11>
-          $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:Qt::GuiPrivate>)
+          $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:Qt::GuiPrivate>
+          $<$<PLATFORM_ID:Haiku>:$<LINK_LIBRARY:DEFAULT,be>>)
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/deps/obs-scripting" "${CMAKE_BINARY_DIR}/deps/obs-scripting")
 

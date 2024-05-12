@@ -71,7 +71,9 @@
 
 #if !defined(_WIN32) && !defined(__APPLE__)
 #include <obs-nix-platform.h>
+#if !defined(__HAIKU__)
 #include <qpa/qplatformnativeinterface.h>
+#endif
 #endif
 
 #include <iostream>
@@ -1308,7 +1310,7 @@ bool OBSApp::OBSInit()
 
 	qRegisterMetaType<VoidFunc>("VoidFunc");
 
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(__HAIKU__)
 	if (QApplication::platformName() == "xcb") {
 		obs_set_nix_platform(OBS_NIX_PLATFORM_X11_EGL);
 		blog(LOG_INFO, "Using EGL/X11");
@@ -1414,6 +1416,8 @@ string OBSApp::GetVersionString(bool platform) const
 		ver << "openbsd)";
 #elif __FreeBSD__
 		ver << "freebsd)";
+#elif __HAIKU__
+		ver << "haiku)";
 #else /* assume linux for the time being */
 		ver << "linux)";
 #endif
@@ -1443,6 +1447,9 @@ bool OBSApp::IsMissingFilesCheckDisabled()
 #elif _WIN32
 #define INPUT_AUDIO_SOURCE "wasapi_input_capture"
 #define OUTPUT_AUDIO_SOURCE "wasapi_output_capture"
+#elif __HAIKU__
+#define INPUT_AUDIO_SOURCE ""
+#define OUTPUT_AUDIO_SOURCE ""
 #else
 #define INPUT_AUDIO_SOURCE "pulse_input_capture"
 #define OUTPUT_AUDIO_SOURCE "pulse_output_capture"
@@ -2093,7 +2100,7 @@ static int run_program(fstream &logFile, int argc, char *argv[])
 		/* --------------------------------------- */
 	run:
 
-#if !defined(_WIN32) && !defined(__APPLE__) && !defined(__FreeBSD__)
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(__FreeBSD__) && !defined(__HAIKU__)
 		// Mounted by termina during chromeOS linux container startup
 		// https://chromium.googlesource.com/chromiumos/overlays/board-overlays/+/master/project-termina/chromeos-base/termina-lxd-scripts/files/lxd_setup.sh
 		os_dir_t *crosDir = os_opendir("/opt/google/cros-containers");

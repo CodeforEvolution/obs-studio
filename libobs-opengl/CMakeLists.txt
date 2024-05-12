@@ -24,11 +24,16 @@ if(OS_LINUX
   endif()
 endif()
 
+if(OS_HAIKU)
+  find_package(OpenGL REQUIRED OpenGL)
+endif()
+
 target_sources(
   libobs-opengl
   PRIVATE # cmake-format: sortable
           $<$<AND:$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>,$<BOOL:${ENABLE_WAYLAND}>>:gl-wayland-egl.c>
           $<$<PLATFORM_ID:Darwin>:gl-cocoa.m>
+          $<$<PLATFORM_ID:Haiku>:gl-haiku.cpp>
           $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:gl-egl-common.c>
           $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:gl-nix.c>
           $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:gl-x11-egl.c>
@@ -61,7 +66,9 @@ target_link_libraries(
           $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:xcb::xcb>
           $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:X11::x11-xcb>
           $<$<AND:$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>,$<BOOL:${ENABLE_WAYLAND}>>:OpenGL::EGL>
-          $<$<AND:$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>,$<BOOL:${ENABLE_WAYLAND}>>:Wayland::EGL>)
+          $<$<AND:$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>,$<BOOL:${ENABLE_WAYLAND}>>:Wayland::EGL>
+          $<$<PLATFORM_ID:Haiku>:$<LINK_LIBRARY:DEFAULT,be>>
+          $<$<PLATFORM_ID:Haiku>:$<LINK_LIBRARY:DEFAULT,GL>>)
 
 if(OS_WINDOWS)
   configure_file(cmake/windows/obs-module.rc.in libobs-opengl.rc)

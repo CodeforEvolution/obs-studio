@@ -43,6 +43,14 @@ elseif(OS_MACOS)
 
   target_link_libraries(libobs-opengl PRIVATE ${COCOA} ${IOSURF})
   set_target_properties(libobs-opengl PROPERTIES PREFIX "")
+  
+elseif(OS_HAIKU)
+  find_library(BE be)
+
+  target_sources(libobs-opengl PRIVATE gl-haiku.cpp)
+
+  target_link_libraries(libobs-opengl PRIVATE ${BE})
+  set_target_properties(libobs-opengl PROPERTIES PREFIX "")
 
 elseif(OS_POSIX)
   find_package(X11 REQUIRED)

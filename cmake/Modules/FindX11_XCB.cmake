@@ -13,7 +13,7 @@
 # Redistribution and use is allowed according to the terms of the BSD license. For details see the accompanying COPYING-CMAKE-SCRIPTS file.
 # cmake-format: on
 
-if(NOT WIN32)
+if(NOT WIN32 AND NOT HAIKU)
   # use pkg-config to get the directories and then use these values in the FIND_PATH() and FIND_LIBRARY() calls
   find_package(PkgConfig)
   pkg_check_modules(PKG_X11_XCB QUIET x11-xcb)

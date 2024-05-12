@@ -387,6 +387,28 @@ elseif(OS_MACOS)
 
   set_target_properties(libobs PROPERTIES SOVERSION "1" BUILD_RPATH "$<TARGET_FILE_DIR:OBS::libobs-opengl>")
 
+elseif(OS_HAIKU)
+  if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
+    target_compile_definitions(libobs PRIVATE ENABLE_DARRAY_TYPE_TEST)
+  endif()
+  
+
+  target_sources(
+    libobs
+    PRIVATE obs-haiku.c
+            util/threading-posix.c
+            util/threading-posix.h
+            util/pipe-posix.c
+            util/platform-nix.c
+            audio-monitoring/null/null-audio-monitoring.c)
+
+   find_package(LibUUID REQUIRED)   
+   find_library(BE be)
+   mark_as_advanced(BE)
+   
+   target_link_libraries(libobs PRIVATE ${BE} LibUUID::LibUUID)
+   target_compile_definitions(libobs PRIVATE USE_XDG)
+
 elseif(OS_POSIX)
   if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
     target_compile_definitions(libobs PRIVATE ENABLE_DARRAY_TYPE_TEST)

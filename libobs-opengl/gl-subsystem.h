@@ -17,6 +17,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <util/darray.h>
 #include <util/threading.h>
 #include <graphics/graphics.h>
@@ -688,3 +692,7 @@ extern void gl_windowinfo_destroy(struct gl_windowinfo *wi);
 
 extern void gl_getclientsize(const struct gs_swap_chain *swap, uint32_t *width,
 			     uint32_t *height);
+
+#ifdef __cplusplus
+}
+#endif

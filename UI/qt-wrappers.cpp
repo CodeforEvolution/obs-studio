@@ -32,12 +32,16 @@
 #include <QPushButton>
 #include <QToolBar>
 
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(__HAIKU__)
 #include <obs-nix-platform.h>
 #endif
 
 #ifdef ENABLE_WAYLAND
 #include <qpa/qplatformnativeinterface.h>
+#endif
+
+#ifdef __HAIKU__
+class BWindow;
 #endif
 
 static inline void OBSErrorBoxva(QWidget *parent, const char *msg, va_list args)
@@ -128,6 +132,8 @@ bool QTToGSWindow(QWindow *window, gs_window &gswindow)
 	gswindow.hwnd = (HWND)window->winId();
 #elif __APPLE__
 	gswindow.view = (id)window->winId();
+#elif __HAIKU__
+	gswindow.window = (BWindow*)window->winId();
 #else
 	switch (obs_get_nix_platform()) {
 	case OBS_NIX_PLATFORM_X11_EGL:

@@ -56,7 +56,7 @@ int open_gl(void) {
         libGL = dlopen(NAMES[index], RTLD_NOW | RTLD_GLOBAL);
 
         if(libGL != NULL) {
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(__HAIKU__)
             return 1;
 #else
             gladGetProcAddressPtr = (PFNGLXGETPROCADDRESSPROC_PRIVATE)dlsym(libGL,

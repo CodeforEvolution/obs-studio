@@ -460,17 +460,16 @@ elseif(OS_MACOS)
 
   set_source_files_properties(platform-osx.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 
-elseif(OS_POSIX)
+elseif(OS_HAIKU)
+  target_sources(obs PRIVATE platform-haiku.cpp)
+  target_link_libraries(obs PRIVATE be)
+
+elseif(OS_LINUX OR OS_FREEBSD OR OS_OPENBSD)
   target_sources(obs PRIVATE platform-x11.cpp)
   target_link_libraries(obs PRIVATE Qt::GuiPrivate Qt::DBus)
 
   target_compile_definitions(obs PRIVATE OBS_INSTALL_PREFIX="${OBS_INSTALL_PREFIX}"
                                          "$<$<BOOL:${LINUX_PORTABLE}>:LINUX_PORTABLE>")
-  if(TARGET obspython)
-    find_package(Python REQUIRED COMPONENTS Interpreter Development)
-    target_link_libraries(obs PRIVATE Python::Python)
-    target_link_options(obs PRIVATE "LINKER:-no-as-needed")
-  endif()
 
   if(NOT LINUX_PORTABLE)
     add_subdirectory(xdg-data)
@@ -491,6 +490,14 @@ elseif(OS_POSIX)
     target_sources(obs PRIVATE update/crypto-helpers.hpp update/crypto-helpers-mbedtls.cpp update/shared-update.cpp
                                update/shared-update.hpp update/update-helpers.cpp update/update-helpers.hpp)
     target_link_libraries(obs PRIVATE Mbedtls::Mbedtls nlohmann_json::nlohmann_json OBS::blake2)
+  endif()
+endif()
+
+if(OS_POSIX)
+  if(TARGET obspython)
+    find_package(Python REQUIRED COMPONENTS Interpreter Development)
+    target_link_libraries(obs PRIVATE Python::Python)
+    target_link_options(obs PRIVATE "LINKER:-no-as-needed")
   endif()
 endif()
 

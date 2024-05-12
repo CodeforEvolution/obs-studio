@@ -108,7 +108,7 @@ if(OS_WINDOWS)
             obs-nvenc-ver.h
             obs-ffmpeg.rc)
 
-elseif(OS_POSIX AND NOT OS_MACOS)
+elseif(OS_POSIX AND NOT OS_MACOS AND NOT OS_HAIKU)
   find_package(Libva REQUIRED)
   find_package(Libpci REQUIRED)
   find_package(Libdrm REQUIRED)

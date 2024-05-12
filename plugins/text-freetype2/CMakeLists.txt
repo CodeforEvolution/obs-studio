@@ -16,7 +16,8 @@ if(OS_MACOS)
 elseif(
   OS_LINUX
   OR OS_FREEBSD
-  OR OS_OPENBSD)
+  OR OS_OPENBSD
+  OR OS_HAIKU)
   find_package(Fontconfig REQUIRED)
 endif()
 
@@ -28,7 +29,7 @@ target_sources(
   PRIVATE # cmake-format: sortable
           $<$<PLATFORM_ID:Darwin>:find-font-cocoa.m>
           $<$<PLATFORM_ID:Darwin>:find-font-iconv.c>
-          $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:find-font-unix.c>
+          $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD,Haiku>:find-font-unix.c>
           $<$<PLATFORM_ID:Windows,Darwin>:find-font.c>
           $<$<PLATFORM_ID:Windows>:find-font-windows.c>
           find-font.h
@@ -45,7 +46,7 @@ target_link_libraries(
           Freetype::Freetype
           $<$<PLATFORM_ID:Darwin>:Iconv::Iconv>
           "$<$<PLATFORM_ID:Darwin>:$<LINK_LIBRARY:FRAMEWORK,Cocoa.framework>>"
-          $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>:Fontconfig::Fontconfig>)
+          $<$<PLATFORM_ID:Linux,FreeBSD,OpenBSD,Haiku>:Fontconfig::Fontconfig>)
 # cmake-format: on
 
 # FreeType is hard-coded with /DEFAULTLIB:MSVCRT

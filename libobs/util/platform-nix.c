@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2023 Lain Bailey <lain@obsproject.com>
+ * Copyright (c) 2024 Jacob Secunda <secundaja@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -54,10 +55,15 @@
 #else
 #include <sys/resource.h>
 #endif
-#if !defined(__OpenBSD__)
+#if !defined(__OpenBSD__) && !defined(__HAIKU__)
 #include <sys/sysinfo.h>
 #endif
 #include <spawn.h>
+#endif
+
+#if defined(__HAIKU__)
+#include <FindDirectory.h>
+#include <OS.h>
 #endif
 
 #include "darray.h"
@@ -112,7 +118,7 @@ void os_dlclose(void *module)
 		dlclose(module);
 }
 
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(__HAIKU__)
 int module_has_qt5_check(const char *path)
 {
 	void *mod = os_dlopen(path);
@@ -153,7 +159,7 @@ void get_plugin_info(const char *path, bool *is_obs_plugin, bool *can_load)
 {
 	*is_obs_plugin = true;
 	*can_load = true;
-#if !defined(__APPLE__)
+#if !defined(__APPLE__) && !defined(__HAIKU__)
 	*can_load = !has_qt5_dependency(path);
 #endif
 	UNUSED_PARAMETER(path);
@@ -278,7 +284,7 @@ uint64_t os_gettime_ns(void)
  * should return $HOME/.config/[name] as default */
 int os_get_config_path(char *dst, size_t size, const char *name)
 {
-#ifdef USE_XDG
+#if defined(USE_XDG)
 	char *xdg_ptr = getenv("XDG_CONFIG_HOME");
 
 	// If XDG_CONFIG_HOME is unset,
@@ -289,10 +295,18 @@ int os_get_config_path(char *dst, size_t size, const char *name)
 			bcrash("Could not get $HOME\n");
 
 		if (!name || !*name) {
-			return snprintf(dst, size, "%s/.config", home_ptr);
+		#if defined(__HAIKU__)
+			return snprintf(dst, size "%s/config/settings", home_ptr);
+		#else
+			return snprintf(dst, size "%s/.config", home_ptr);
+		#endif
 		} else {
+		#if defined(__HAIKU__)
+			return snprintf(dst, size, "%s/config/settings/%s", home_ptr, name);
+		#else
 			return snprintf(dst, size, "%s/.config/%s", home_ptr,
 					name);
+		#endif
 		}
 	} else {
 		if (!name || !*name)
@@ -316,7 +330,7 @@ int os_get_config_path(char *dst, size_t size, const char *name)
  * should return $HOME/.config/[name] as default */
 char *os_get_config_path_ptr(const char *name)
 {
-#ifdef USE_XDG
+#if defined(USE_XDG)
 	struct dstr path;
 	char *xdg_ptr = getenv("XDG_CONFIG_HOME");
 
@@ -328,7 +342,11 @@ char *os_get_config_path_ptr(const char *name)
 			bcrash("Could not get $HOME\n");
 
 		dstr_init_copy(&path, home_ptr);
+	#if defined(__HAIKU__)
+		dstr_cat(&path, "/config/settings/");
+	#else
 		dstr_cat(&path, "/.config/");
+	#endif
 		dstr_cat(&path, name);
 	} else {
 		dstr_init_copy(&path, xdg_ptr);
@@ -351,17 +369,59 @@ char *os_get_config_path_ptr(const char *name)
 
 int os_get_program_data_path(char *dst, size_t size, const char *name)
 {
+#if defined(__HAIKU__)
+	status_t result = find_path_etc(B_APP_IMAGE_SYMBOL,
+									NULL, NULL,
+									B_FIND_PATH_DATA_DIRECTORY,
+									!!name ? name : "",
+									B_FIND_PATH_EXISTING_ONLY,
+									dst, size);
+	if (result == B_OK)
+		return strlen(dst);
+
+	// Fallback
+	return snprintf(dst, size, "/boot/system/non-packaged/data/%s",
+		!!name ? name : "");
+#else
 	return snprintf(dst, size, "/usr/local/share/%s", !!name ? name : "");
+#endif
 }
 
 char *os_get_program_data_path_ptr(const char *name)
 {
+#if defined(__HAIKU__)
+	char *path = bmalloc(PATH_MAX);
+	status_t result = find_path_etc(B_APP_IMAGE_SYMBOL,
+									NULL, NULL,
+									B_FIND_PATH_DATA_DIRECTORY,
+									!!name ? name : "",
+									B_FIND_PATH_EXISTING_ONLY,
+									path, PATH_MAX);
+	if (result == B_OK)
+		return path;
+
+	bfree(path);
+	path = NULL;
+
+	if (result == B_BUFFER_OVERFLOW)
+		bcrash("The program data path is larger than PATH_MAX!?");
+
+	// Fallback
+	size_t length = snprintf(NULL, 0, "/boot/system/non-packaged/data/%s",
+		!!name ? name : "");
+	path = bmalloc(length + 1);
+	snprintf(path, length + 1, "/boot/system/non-packaged/data/%s",
+		!!name ? name : "");
+	path[length] = 0;
+	return path;
+#else
 	size_t len =
 		snprintf(NULL, 0, "/usr/local/share/%s", !!name ? name : "");
 	char *str = bmalloc(len + 1);
 	snprintf(str, len + 1, "/usr/local/share/%s", !!name ? name : "");
 	str[len] = 0;
 	return str;
+#endif
 }
 
 #if defined(__OpenBSD__)
@@ -436,6 +496,15 @@ char *os_get_executable_path_ptr(const char *name)
 	count = pathlen;
 #elif defined(__OpenBSD__)
 	ssize_t count = os_openbsd_get_executable_path(exe);
+#elif defined(__HAIKU__)
+	status_t result = find_path(B_APP_IMAGE_SYMBOL, B_FIND_PATH_IMAGE_PATH,
+		NULL, exe, PATH_MAX);
+	if (result != B_OK) {
+		blog(LOG_ERROR, "find_path(B_FIND_PATH_IMAGE_PATH) failed, result %d",
+			result);
+		return NULL;
+	}
+	ssize_t count = strlen(exe);
 #else
 	ssize_t count = readlink("/proc/self/exe", exe, PATH_MAX - 1);
 	if (count >= 0) {
@@ -1049,6 +1118,53 @@ uint64_t os_get_proc_virtual_size(void)
 		return 0;
 	return (uint64_t)kinfo.ki_size;
 }
+#elif defined(__HAIKU__)
+uint64_t os_get_sys_free_size(void)
+{
+	system_info info;
+	if (get_system_info(&info) != B_OK)
+		return 0;
+
+	return (info.max_pages - info.used_pages) * B_PAGE_SIZE;
+}
+
+static inline bool os_get_proc_memory_usage_internal(os_proc_memory_usage_t *usage)
+{
+	usage->resident_size = 0;
+	usage->virtual_size = 0;
+
+	area_info info;
+	ssize_t cookie = 0;
+	while (get_next_area_info(B_CURRENT_TEAM, &cookie, &info) == B_OK) {
+		usage->resident_size += info.ram_size;
+		usage->virtual_size += info.size;
+	}
+
+	return cookie > 0;
+}
+
+bool os_get_proc_memory_usage(os_proc_memory_usage_t *usage)
+{
+	return os_get_proc_memory_usage_internal(usage);
+}
+
+uint64_t os_get_proc_resident_size(void)
+{
+	os_proc_memory_usage_t usage;
+	if (!os_get_proc_memory_usage_internal(&usage))
+		return 0;
+
+	return usage.resident_size;
+}
+
+uint64_t os_get_proc_virtual_size(void)
+{
+	os_proc_memory_usage_t usage;
+	if (!os_get_proc_memory_usage_internal(&usage))
+		return 0;
+
+	return usage.virtual_size;
+}
 #else
 uint64_t os_get_sys_free_size(void)
 {
@@ -1120,7 +1236,13 @@ static void os_get_sys_total_size_internal()
 {
 	total_memory_initialized = true;
 
-#ifndef __OpenBSD__
+#if defined(__HAIKU__)
+	system_info info;
+	if (get_system_info(&info) != B_OK)
+		return;
+
+	total_memory = info.max_pages * B_PAGE_SIZE;
+#elif !defined(__OpenBSD__)
 	struct sysinfo info;
 	if (sysinfo(&info) < 0)
 		return;
