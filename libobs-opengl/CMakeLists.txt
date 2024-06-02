@@ -25,7 +25,8 @@ if(OS_LINUX
 endif()
 
 if(OS_HAIKU)
-  find_package(OpenGL REQUIRED OpenGL)
+  # find_package(OpenGL REQUIRED EGL) doesn't work because there's no libglvnd.
+  find_library(EGL egl)
 endif()
 
 target_sources(
@@ -68,7 +69,7 @@ target_link_libraries(
           $<$<AND:$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>,$<BOOL:${ENABLE_WAYLAND}>>:OpenGL::EGL>
           $<$<AND:$<PLATFORM_ID:Linux,FreeBSD,OpenBSD>,$<BOOL:${ENABLE_WAYLAND}>>:Wayland::EGL>
           $<$<PLATFORM_ID:Haiku>:$<LINK_LIBRARY:DEFAULT,be>>
-          $<$<PLATFORM_ID:Haiku>:$<LINK_LIBRARY:DEFAULT,GL>>)
+          $<$<PLATFORM_ID:Haiku>:EGL>)
 
 if(OS_WINDOWS)
   configure_file(cmake/windows/obs-module.rc.in libobs-opengl.rc)

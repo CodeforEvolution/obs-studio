@@ -1,5 +1,5 @@
 # cmake-format: off
-if(OS_WINDOWS OR OS_MACOS)
+if(OS_WINDOWS OR OS_MACOS OR OS_HAIKU)
   set(ffmpeg_version 6)
 else()
   set(ffmpeg_version 4.4)
