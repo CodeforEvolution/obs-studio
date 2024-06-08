@@ -119,10 +119,10 @@ static const char *source_signals[] = {
 
 bool obs_source_init_context(struct obs_source *source, obs_data_t *settings,
 			     const char *name, const char *uuid,
-			     obs_data_t *hotkey_data, bool private)
+			     obs_data_t *hotkey_data, bool is_private)
 {
 	if (!obs_context_data_init(&source->context, OBS_OBJ_TYPE_SOURCE,
-				   settings, name, uuid, hotkey_data, private))
+				   settings, name, uuid, hotkey_data, is_private))
 		return false;
 
 	return signal_handler_add_array(source->context.signals,
@@ -247,7 +247,7 @@ static void obs_source_init_finalize(struct obs_source *source)
 		pthread_mutex_unlock(&obs->data.audio_sources_mutex);
 	}
 
-	if (!source->context.private) {
+	if (!source->context.is_private) {
 		obs_context_data_insert_name(&source->context,
 					     &obs->data.sources_mutex,
 					     &obs->data.public_sources);
@@ -350,7 +350,7 @@ static void obs_source_init_audio_hotkeys(struct obs_source *source)
 static obs_source_t *
 obs_source_create_internal(const char *id, const char *name, const char *uuid,
 			   obs_data_t *settings, obs_data_t *hotkey_data,
-			   bool private, uint32_t last_obs_ver)
+			   bool is_private, uint32_t last_obs_ver)
 {
 	struct obs_source *source = bzalloc(sizeof(struct obs_source));
 
@@ -369,7 +369,7 @@ obs_source_create_internal(const char *id, const char *name, const char *uuid,
 		 *
 		 * XXX: Fix design flaws with filters */
 		if (info->type == OBS_SOURCE_TYPE_FILTER)
-		private = true;
+		is_private = true;
 	}
 
 	source->mute_unmute_key = OBS_INVALID_HOTKEY_PAIR_ID;
@@ -378,7 +378,7 @@ obs_source_create_internal(const char *id, const char *name, const char *uuid,
 	source->last_obs_ver = last_obs_ver;
 
 	if (!obs_source_init_context(source, settings, name, uuid, hotkey_data,
-				     private))
+				     is_private))
 		goto fail;
 
 	if (info) {
@@ -394,7 +394,7 @@ obs_source_create_internal(const char *id, const char *name, const char *uuid,
 	if (!obs_source_init(source))
 		goto fail;
 
-	if (!private)
+	if (!is_private)
 		obs_source_init_audio_hotkeys(source);
 
 	/* allow the source to be created even if creation fails so that the
@@ -405,14 +405,14 @@ obs_source_create_internal(const char *id, const char *name, const char *uuid,
 	if ((!info || info->create) && !source->context.data)
 		blog(LOG_ERROR, "Failed to create source '%s'!", name);
 
-	blog(LOG_DEBUG, "%ssource '%s' (%s) created", private ? "private " : "",
+	blog(LOG_DEBUG, "%ssource '%s' (%s) created", is_private ? "private " : "",
 	     name, id);
 
 	source->flags = source->default_flags;
 	source->enabled = true;
 
 	obs_source_init_finalize(source);
-	if (!private) {
+	if (!is_private) {
 		obs_source_dosignal(source, "source_create", NULL);
 	}
 
@@ -471,7 +471,7 @@ static char *get_new_filter_name(obs_source_t *dst, const char *name)
 }
 
 static void duplicate_filters(obs_source_t *dst, obs_source_t *src,
-			      bool private)
+			      bool is_private)
 {
 	DARRAY(obs_source_t *) filters;
 
@@ -493,7 +493,7 @@ static void duplicate_filters(obs_source_t *dst, obs_source_t *src,
 		bool enabled = obs_source_enabled(src_filter);
 
 		obs_source_t *dst_filter =
-			obs_source_duplicate(src_filter, new_name, private);
+			obs_source_duplicate(src_filter, new_name, is_private);
 		obs_source_set_enabled(dst_filter, enabled);
 
 		bfree(new_name);
@@ -512,7 +512,7 @@ void obs_source_copy_filters(obs_source_t *dst, obs_source_t *src)
 	if (!obs_source_valid(src, "obs_source_copy_filters"))
 		return;
 
-	duplicate_filters(dst, src, dst->context.private);
+	duplicate_filters(dst, src, dst->context.is_private);
 }
 
 static void duplicate_filter(obs_source_t *dst, obs_source_t *filter)
@@ -670,7 +670,7 @@ void obs_source_destroy(struct obs_source *source)
 		obs_source_filter_remove(source, source->filters.array[0]);
 
 	obs_context_data_remove_uuid(&source->context, &obs->data.sources);
-	if (!source->context.private)
+	if (!source->context.is_private)
 		obs_context_data_remove_name(&source->context,
 					     &obs->data.public_sources);
 
@@ -695,7 +695,7 @@ static void obs_source_destroy_defer(struct obs_source *source)
 	}
 
 	blog(LOG_DEBUG, "%ssource '%s' destroyed",
-	     source->context.private ? "private " : "", source->context.name);
+	     source->context.is_private ? "private " : "", source->context.name);
 
 	audio_monitor_destroy(source->monitor);
 
@@ -4449,7 +4449,7 @@ void obs_source_set_name(obs_source_t *source, const char *name)
 		struct calldata data;
 		char *prev_name = bstrdup(source->context.name);
 
-		if (!source->context.private) {
+		if (!source->context.is_private) {
 			obs_context_data_setname_ht(&source->context, name,
 						    &obs->data.public_sources);
 		} else {
@@ -4460,7 +4460,7 @@ void obs_source_set_name(obs_source_t *source, const char *name)
 		calldata_set_ptr(&data, "source", source);
 		calldata_set_string(&data, "new_name", source->context.name);
 		calldata_set_string(&data, "prev_name", prev_name);
-		if (!source->context.private)
+		if (!source->context.is_private)
 			signal_handler_signal(obs->signals, "source_rename",
 					      &data);
 		signal_handler_signal(source->context.signals, "rename", &data);
@@ -4752,7 +4752,7 @@ void obs_source_set_volume(obs_source_t *source, float volume)
 		calldata_set_float(&data, "volume", volume);
 
 		signal_handler_signal(source->context.signals, "volume", &data);
-		if (!source->context.private)
+		if (!source->context.is_private)
 			signal_handler_signal(obs->signals, "source_volume",
 					      &data);
 

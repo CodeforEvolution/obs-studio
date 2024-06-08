@@ -1988,7 +1988,7 @@ static inline void *get_context_by_name(void *vfirst, const char *name,
 	} else {
 		context = *first;
 		while (context) {
-			if (!context->private &&
+			if (!context->is_private &&
 			    strcmp(context->name, name) == 0) {
 				break;
 			}
@@ -2610,9 +2610,9 @@ void obs_reset_source_uuids()
 }
 
 /* ensures that names are never blank */
-static inline char *dup_name(const char *name, bool private)
+static inline char *dup_name(const char *name, bool is_private)
 {
-	if (private && !name)
+	if (is_private && !name)
 		return NULL;
 
 	if (!name || !*name) {
@@ -2630,11 +2630,11 @@ static inline bool
 obs_context_data_init_wrap(struct obs_context_data *context,
 			   enum obs_obj_type type, obs_data_t *settings,
 			   const char *name, const char *uuid,
-			   obs_data_t *hotkey_data, bool private)
+			   obs_data_t *hotkey_data, bool is_private)
 {
 	assert(context);
 	memset(context, 0, sizeof(*context));
-	context->private = private;
+	context->is_private = is_private;
 	context->type = type;
 
 	pthread_mutex_init_value(&context->rename_cache_mutex);
@@ -2655,7 +2655,7 @@ obs_context_data_init_wrap(struct obs_context_data *context,
 	else if (type == OBS_OBJ_TYPE_SOURCE)
 		context->uuid = os_generate_uuid();
 
-	context->name = dup_name(name, private);
+	context->name = dup_name(name, is_private);
 	context->settings = obs_data_newref(settings);
 	context->hotkey_data = obs_data_newref(hotkey_data);
 	return true;
@@ -2664,10 +2664,10 @@ obs_context_data_init_wrap(struct obs_context_data *context,
 bool obs_context_data_init(struct obs_context_data *context,
 			   enum obs_obj_type type, obs_data_t *settings,
 			   const char *name, const char *uuid,
-			   obs_data_t *hotkey_data, bool private)
+			   obs_data_t *hotkey_data, bool is_private)
 {
 	if (obs_context_data_init_wrap(context, type, settings, name, uuid,
-				       hotkey_data, private)) {
+				       hotkey_data, is_private)) {
 		return true;
 	} else {
 		obs_context_data_free(context);
@@ -2860,7 +2860,7 @@ void obs_context_data_setname(struct obs_context_data *context,
 
 	if (context->name)
 		da_push_back(context->rename_cache, &context->name);
-	context->name = dup_name(name, context->private);
+	context->name = dup_name(name, context->is_private);
 
 	pthread_mutex_unlock(&context->rename_cache_mutex);
 }
@@ -2887,7 +2887,7 @@ void obs_context_data_setname_ht(struct obs_context_data *context,
 		     context->name, new_name);
 		context->name = new_name;
 	} else {
-		context->name = dup_name(name, context->private);
+		context->name = dup_name(name, context->is_private);
 	}
 
 	HASH_ADD_STR(*head, name, context);
@@ -2972,7 +2972,7 @@ bool obs_obj_is_private(void *obj)
 	if (!context)
 		return false;
 
-	return context->private;
+	return context->is_private;
 }
 
 void obs_reset_audio_monitoring(void)

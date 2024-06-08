@@ -1688,7 +1688,7 @@ static obs_source_t *get_child_at_idx(obs_scene_t *scene, size_t idx)
 
 static inline obs_source_t *dup_child(obs_scene_item_ptr_array_t *old_items,
 				      size_t idx, obs_scene_t *new_scene,
-				      bool private)
+				      bool is_private)
 {
 	obs_source_t *source;
 
@@ -1706,7 +1706,7 @@ static inline obs_source_t *dup_child(obs_scene_item_ptr_array_t *old_items,
 	}
 
 	return obs_source_duplicate(
-		source, private ? obs_source_get_name(source) : NULL, private);
+		source, is_private ? obs_source_get_name(source) : NULL, is_private);
 }
 
 static inline obs_source_t *new_ref(obs_source_t *source)
@@ -1761,7 +1761,7 @@ static inline void duplicate_item_data(struct obs_scene_item *dst,
 	dst->show_transition_duration = src->show_transition_duration;
 	dst->hide_transition_duration = src->hide_transition_duration;
 
-	if (duplicate_hotkeys && !dst_scene->source->context.private) {
+	if (duplicate_hotkeys && !dst_scene->source->context.is_private) {
 		struct dstr show = {0};
 		struct dstr hide = {0};
 		obs_data_array_t *data0 = NULL;
@@ -2254,7 +2254,7 @@ static obs_sceneitem_t *obs_scene_add_internal(obs_scene_t *scene,
 
 	full_unlock(scene);
 
-	if (!scene->source->context.private)
+	if (!scene->source->context.is_private)
 		init_hotkeys(scene, item, obs_source_get_name(source));
 
 	signal_handler_connect(obs_source_get_signal_handler(source), "rename",

@@ -39,7 +39,7 @@ static obs_service_t *obs_service_create_internal(const char *id,
 						  const char *name,
 						  obs_data_t *settings,
 						  obs_data_t *hotkey_data,
-						  bool private)
+						  bool is_private)
 {
 	const struct obs_service_info *info = find_service(id);
 	struct obs_service *service;
@@ -53,7 +53,7 @@ static obs_service_t *obs_service_create_internal(const char *id,
 
 	if (!obs_context_data_init(&service->context, OBS_OBJ_TYPE_SERVICE,
 				   settings, name, NULL, hotkey_data,
-				   private)) {
+				   is_private)) {
 		bfree(service);
 		return NULL;
 	}

@@ -264,7 +264,7 @@ obs_hotkey_id obs_hotkey_register_source(obs_source_t *source, const char *name,
 					 const char *description,
 					 obs_hotkey_func func, void *data)
 {
-	if (!source || source->context.private || !lock())
+	if (!source || source->context.is_private || !lock())
 		return OBS_INVALID_HOTKEY_ID;
 
 	obs_hotkey_id id = obs_hotkey_register_internal(
