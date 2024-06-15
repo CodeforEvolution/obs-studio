@@ -47,7 +47,7 @@ gl_context_create(OSMesaContext shareContext)
 		OSMESA_STENCIL_BITS, 0,
 		OSMESA_ACCUM_BITS, 0,
 		OSMESA_PROFILE, OSMESA_CORE_PROFILE,
-		OSMESA_CONTEXT_MAJOR_VERSION, 3,
+		OSMESA_CONTEXT_MAJOR_VERSION, 4,
 		OSMESA_CONTEXT_MINOR_VERSION, 3,
 		0, 0
 	};
@@ -80,7 +80,7 @@ gl_windowinfo_create(const struct gs_init_data *info)
 		return nullptr;
 
 	auto parentWindow = static_cast<BWindow *>(info->window.window);
-	windowInfo->view = parentWindow->ChildAt(0);
+	windowInfo->view = parentWindow->FindView("QHaikuSurfaceView");
 
 	return windowInfo;
 }
@@ -88,6 +88,9 @@ gl_windowinfo_create(const struct gs_init_data *info)
 void
 gl_windowinfo_destroy(struct gl_windowinfo *info)
 {
+	if (info == nullptr)
+		return;
+
 	bfree(info);
 }
 
@@ -110,7 +113,8 @@ gl_platform_create(gs_device_t *device, uint32_t adapter)
 	BScreen screen;
 	BBitmap *renderBitmap = new(std::nothrow) BBitmap(BRect(0, 0, screen.Frame().IntegerWidth(), screen.Frame().IntegerHeight()), B_RGBA32);
 	if (renderBitmap == nullptr || renderBitmap->InitCheck() != B_OK) {
-		blog(LOG_ERROR, "Failed to allocate the renderBitmap");
+		blog(LOG_ERROR, "Failed to allocate renderBitmap");
+		delete renderBitmap;
 		OSMesaDestroyContext(context);
 		bfree(plat);
 		return nullptr;
@@ -144,7 +148,6 @@ gl_platform_destroy(struct gl_platform *platform)
 	if (platform == nullptr)
 		return;
 
-	OSMesaMakeCurrent(nullptr, nullptr, GL_UNSIGNED_BYTE, 0, 0);
 	OSMesaDestroyContext(platform->context);
 	platform->context = nullptr;
 
@@ -169,27 +172,25 @@ gl_platform_init_swapchain(struct gs_swap_chain *swap)
     struct gs_init_data *init_data = &swap->info;
 
 	BBitmap *swapBitmap = new(std::nothrow) BBitmap(BRect(B_ORIGIN, BSize(init_data->cx, init_data->cy)), B_RGBA32);
-	if (swapBitmap == nullptr) {
+	if (swapBitmap == nullptr || swapBitmap->InitCheck() != B_OK) {
+		blog(LOG_ERROR, "gl_platform_init_swapchain: Failed to create swapBitmap");
+		delete swapBitmap;
 		OSMesaDestroyContext(swapContext);
 		return false;
 	}
 
 	OSMesaMakeCurrent(parentContext, renderBitmap->Bits(), GL_UNSIGNED_BYTE, renderBitmap->Bounds().IntegerWidth() + 1, renderBitmap->Bounds().IntegerHeight() + 1);
-
 	swap->wi->texture = device_texture_create(swap->device, init_data->cx, init_data->cy, init_data->format, 1,
                                                   nullptr, GS_RENDER_TARGET);
 	glFlush();
-
 	OSMesaMakeCurrent(nullptr, nullptr, GL_UNSIGNED_BYTE, 0, 0);
 
 	OSMesaMakeCurrent(swapContext, swapBitmap->Bits(), GL_UNSIGNED_BYTE, swapBitmap->Bounds().IntegerWidth() + 1, swapBitmap->Bounds().IntegerHeight() + 1);
-
 	gl_gen_framebuffers(1, &swap->wi->fbo);
 	gl_bind_framebuffer(GL_FRAMEBUFFER, swap->wi->fbo);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swap->wi->texture->texture, 0);
 	gl_success("glFrameBufferTexture2D");
 	glFlush();
-
 	OSMesaMakeCurrent(nullptr, nullptr, GL_UNSIGNED_BYTE, 0, 0);
 
 	swap->wi->context = swapContext;
@@ -208,17 +209,14 @@ gl_platform_cleanup_swapchain(struct gs_swap_chain *swap)
 	BBitmap* swapBitmap = swap->wi->bitmap;
 
 	OSMesaMakeCurrent(swapContext, swapBitmap->Bits(), GL_UNSIGNED_BYTE, swapBitmap->Bounds().IntegerWidth() + 1, swapBitmap->Bounds().IntegerHeight() + 1);
-
     gl_delete_framebuffers(1, &swap->wi->fbo);
     glFlush();
-
     OSMesaMakeCurrent(nullptr, nullptr, GL_UNSIGNED_BYTE, 0, 0);
 
-	OSMesaMakeCurrent(parentContext, parentBitmap->Bits(), GL_UNSIGNED_BYTE, parentBitmap->Bounds().IntegerWidth() + 1, parentBitmap->Bounds().IntegerHeight() + 1);
-
+	OSMesaMakeCurrent(parentContext, parentBitmap->Bits(), GL_UNSIGNED_BYTE,
+		parentBitmap->Bounds().IntegerWidth() + 1, parentBitmap->Bounds().IntegerHeight() + 1);
     gs_texture_destroy(swap->wi->texture);
     glFlush();
-
     OSMesaMakeCurrent(nullptr, nullptr, GL_UNSIGNED_BYTE, 0, 0);
 
 	OSMesaDestroyContext(swapContext);
@@ -234,7 +232,8 @@ void device_enter_context(gs_device_t *device)
 	OSMesaContext context = plat->context;
 	BBitmap *bitmap = plat->bitmap;
 
-	OSMesaMakeCurrent(context, bitmap->Bits(), GL_UNSIGNED_BYTE, bitmap->Bounds().IntegerWidth() + 1, bitmap->Bounds().IntegerHeight() + 1);
+	OSMesaMakeCurrent(context, bitmap->Bits(), GL_UNSIGNED_BYTE,
+		bitmap->Bounds().IntegerWidth() + 1, bitmap->Bounds().IntegerHeight() + 1);
 }
 
 void
@@ -260,12 +259,6 @@ device_get_device_obj(gs_device_t *device)
 void
 gl_getclientsize(const struct gs_swap_chain *swap, uint32_t *width, uint32_t *height)
 {
-//	BRect frame = swap->wi->view->Frame();
-//
-//	if (frame.IsValid()) {
-//		*width = frame.IntegerWidth() + 1;
-//		*height = frame.IntegerHeight() + 1;
-//	}
     if (width)
         *width = swap->info.cx;
     if (height)
@@ -275,9 +268,34 @@ gl_getclientsize(const struct gs_swap_chain *swap, uint32_t *width, uint32_t *he
 void
 gl_update(gs_device_t *device)
 {
+	gs_swapchain_t *swap = device->cur_swap;
+	if (!swap || !swap->wi)
+		return;
 
-	UNUSED_PARAMETER(device);
-	// Nothing to do?
+	gl_windowinfo *window_info = swap->wi;
+	struct gs_init_data *info = &swap->info;
+
+	OSMesaMakeCurrent(nullptr, nullptr, GL_UNSIGNED_BYTE, 0, 0);
+
+	delete window_info->bitmap;
+	window_info->bitmap = new(std::nothrow) BBitmap(BRect(B_ORIGIN, BSize(info->cx, info->cy)), B_RGBA32);
+	if (window_info->bitmap == nullptr) {
+		blog(LOG_ERROR, "gl_update: Failed to allocate BBitmap for current swap_chain!");
+		return;
+	}
+
+	OSMesaMakeCurrent(window_info->context, window_info->bitmap->Bits(), GL_UNSIGNED_BYTE,
+		window_info->bitmap->Bounds().IntegerWidth() + 1, window_info->bitmap->Bounds().IntegerHeight() + 1);
+
+    gs_texture_t *previous = swap->wi->texture;
+	swap->wi->texture = device_texture_create(device, info->cx, info->cy, info->format, 1, NULL, GS_RENDER_TARGET);
+	gl_bind_framebuffer(GL_FRAMEBUFFER, swap->wi->fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, swap->wi->texture->texture, 0);
+	gl_success("glFrameBufferTexture2D");
+	gs_texture_destroy(previous);
+	glFlush();
+
+	OSMesaMakeCurrent(nullptr, nullptr, GL_UNSIGNED_BYTE, 0, 0);
 }
 
 void
@@ -295,7 +313,9 @@ device_load_swapchain(gs_device_t *device, gs_swapchain_t *swap)
 
 	device->cur_swap = swap;
 
-	device_enter_context(device);
+	if (swap != nullptr) {
+		device_set_render_target(device, swap->wi->texture, nullptr);
+	}
 }
 
 bool
@@ -308,12 +328,44 @@ device_is_present_ready(gs_device_t *device)
 void
 device_present(gs_device_t *device)
 {
-	BView *view = device->cur_swap->wi->view;
-	BBitmap *bitmap = device->cur_swap->wi->bitmap;
-	if (view != nullptr && bitmap != nullptr && view->LockLooperWithTimeout(100) == B_OK) {
+	glFlush();
+	OSMesaMakeCurrent(nullptr, nullptr, GL_UNSIGNED_BYTE, 0, 0);
+
+	gs_swapchain_t *swap = device->cur_swap;
+	BView *view = swap->wi->view;
+	BBitmap *bitmap = swap->wi->bitmap;
+
+	OSMesaMakeCurrent(swap->wi->context, bitmap->Bits(), GL_UNSIGNED_BYTE,
+		bitmap->Bounds().IntegerWidth() + 1, bitmap->Bounds().IntegerHeight() + 1);
+
+    gl_bind_framebuffer(GL_READ_FRAMEBUFFER, swap->wi->fbo);
+    gl_bind_framebuffer(GL_DRAW_FRAMEBUFFER, 0);
+    const uint32_t width = swap->info.cx;
+    const uint32_t height = swap->info.cy;
+    glBlitFramebuffer(0, 0, width, height, 0, height, width, 0, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glFlush();
+
+	blog(LOG_DEBUG, "About to redraw...");
+	blog(LOG_DEBUG, "Locking thread: %i", view->Window()->LockingThread());
+	blog(LOG_DEBUG, "Count Locks: %i", view->Window()->CountLocks());
+	blog(LOG_DEBUG, "Count Lock Requests: %i", view->Window()->CountLockRequests());
+	if (view != nullptr && view->Window() != nullptr && view->Window()->LockWithTimeout(1000000) == B_OK) {
+		blog(LOG_DEBUG, "DRAWING!!!");
 		view->DrawBitmap(bitmap, B_ORIGIN);
-		view->UnlockLooper();
+		view->Window()->Unlock();
 	}
+
+    OSMesaMakeCurrent(nullptr, nullptr, GL_UNSIGNED_BYTE, 0, 0);
+
+
+
+	OSMesaMakeCurrent(
+		device->plat->context,
+		device->plat->bitmap->Bits(),
+		GL_UNSIGNED_BYTE,
+		device->plat->bitmap->Bounds().IntegerWidth() + 1,
+		device->plat->bitmap->Bounds().IntegerHeight() + 1
+	);
 }
 
 bool

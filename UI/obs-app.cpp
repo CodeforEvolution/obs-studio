@@ -1993,7 +1993,7 @@ static int run_program(fstream &logFile, int argc, char *argv[])
 	}
 #endif
 
-#if !defined(_WIN32) && !defined(__APPLE__)
+#if !defined(_WIN32) && !defined(__APPLE__) && !defined(__HAIKU__)
 	/* NOTE: The Breeze Qt style plugin adds frame arround QDockWidget with
 	 * QPainter which can not be modifed. To avoid this the base style is
 	 * enforce to the Qt default style on Linux: Fusion. */

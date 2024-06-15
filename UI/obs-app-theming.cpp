@@ -321,6 +321,8 @@ static vector<OBSThemeVariable> ParseThemeVariables(const char *themeData)
 		const QString osPrefix = "os_win_";
 #elif __APPLE__
 		const QString osPrefix = "os_mac_";
+#elif __HAIKU__
+		const QString osPrefix = "os_haiku_";
 #else
 		const QString osPrefix = "os_lin_";
 #endif

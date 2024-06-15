@@ -23,6 +23,10 @@
 #include "obs.h"
 #include "obs-internal.h"
 
+#ifdef __HAIKU__
+#include <kernel/OS.h>
+#endif
+
 struct obs_core *obs = NULL;
 
 static THREAD_LOCAL bool is_ui_thread = false;
@@ -767,6 +771,10 @@ static int obs_init_video(struct obs_video_info *ovi)
 #endif
 	if (errorcode != 0)
 		return OBS_VIDEO_FAIL;
+
+#ifdef __HAIKU__
+	set_thread_priority(get_pthread_thread_id(video->video_thread), B_DISPLAY_PRIORITY);
+#endif
 
 	video->thread_initialized = true;
 

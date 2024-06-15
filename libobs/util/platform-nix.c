@@ -284,7 +284,7 @@ uint64_t os_gettime_ns(void)
  * should return $HOME/.config/[name] as default */
 int os_get_config_path(char *dst, size_t size, const char *name)
 {
-#if defined(USE_XDG)
+#if defined(USE_XDG) || defined(__HAIKU__)
 	char *xdg_ptr = getenv("XDG_CONFIG_HOME");
 
 	// If XDG_CONFIG_HOME is unset,
@@ -296,9 +296,9 @@ int os_get_config_path(char *dst, size_t size, const char *name)
 
 		if (!name || !*name) {
 		#if defined(__HAIKU__)
-			return snprintf(dst, size "%s/config/settings", home_ptr);
+			return snprintf(dst, size, "%s/config/settings", home_ptr);
 		#else
-			return snprintf(dst, size "%s/.config", home_ptr);
+			return snprintf(dst, size, "%s/.config", home_ptr);
 		#endif
 		} else {
 		#if defined(__HAIKU__)
@@ -330,7 +330,7 @@ int os_get_config_path(char *dst, size_t size, const char *name)
  * should return $HOME/.config/[name] as default */
 char *os_get_config_path_ptr(const char *name)
 {
-#if defined(USE_XDG)
+#if defined(USE_XDG) || defined(__HAIKU__)
 	struct dstr path;
 	char *xdg_ptr = getenv("XDG_CONFIG_HOME");
 
